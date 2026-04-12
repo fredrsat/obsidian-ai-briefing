@@ -1,0 +1,9 @@
+{
+  "id": "obsidian-ai-briefing",
+  "name": "AI Briefing",
+  "version": "1.0.0",
+  "minAppVersion": "1.4.0",
+  "description": "Automated AI news briefing generator with multi-provider LLM curation",
+  "author": "fredrsat",
+  "isDesktopOnly": true
+}
