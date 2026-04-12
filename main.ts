@@ -1,4 +1,4 @@
-import { App, Modal, Notice, Plugin, PluginSettingTab, Setting, requestUrl, TFile } from 'obsidian';
+import { AbstractInputSuggest, App, Modal, Notice, Plugin, PluginSettingTab, Setting, requestUrl, TFile, TFolder } from 'obsidian';
 
 // ============================================================================
 // TYPES & CONSTANTS
@@ -398,7 +398,7 @@ async function fetchRedditML(source: SourceDefinition): Promise<RawArticle[]> {
   const response = await requestUrl({
     url: 'https://www.reddit.com/r/MachineLearning/hot.json?limit=25',
     method: 'GET',
-    headers: { 'User-Agent': 'obsidian-ai-briefing/1.0' },
+    headers: { 'User-Agent': 'ai-briefing/1.0' },
   });
   const data: { data: { children: Array<{ data: {
     id: string; title: string; url: string; permalink: string;
@@ -432,7 +432,7 @@ async function fetchGitHubTrending(source: SourceDefinition): Promise<RawArticle
   const response = await requestUrl({
     url,
     method: 'GET',
-    headers: { 'User-Agent': 'obsidian-ai-briefing/1.0' },
+    headers: { 'User-Agent': 'ai-briefing/1.0' },
   });
   const data: { items: Array<{
     full_name: string; html_url: string; description: string;
@@ -468,10 +468,10 @@ const FETCH_FUNCTIONS: Record<string, (source: SourceDefinition) => Promise<RawA
 const DEFAULT_SOURCES: SourceDefinition[] = [
   // RSS Feeds
   { id: 'mit-tech-review',  name: 'MIT Technology Review AI', type: 'rss', url: 'https://www.technologyreview.com/topic/artificial-intelligence/feed', category: 'RSS Feeds', enabled: true },
-  { id: 'the-batch',        name: 'The Batch (deeplearning.ai)', type: 'rss', url: 'https://www.deeplearning.ai/the-batch/feed/', category: 'RSS Feeds', enabled: true },
+  { id: 'the-batch',        name: 'The Batch (deeplearning.ai)', type: 'rss', url: 'https://charonhub.deeplearning.ai/rss/', category: 'RSS Feeds', enabled: true },
   { id: 'google-ai-blog',   name: 'Google AI Blog', type: 'rss', url: 'https://blog.google/technology/ai/rss/', category: 'RSS Feeds', enabled: true },
   { id: 'openai-blog',      name: 'OpenAI Blog', type: 'rss', url: 'https://openai.com/blog/rss.xml', category: 'RSS Feeds', enabled: true },
-  { id: 'anthropic-blog',   name: 'Anthropic Research', type: 'rss', url: 'https://www.anthropic.com/rss/research', category: 'RSS Feeds', enabled: true },
+  { id: 'anthropic-blog',   name: 'Anthropic Research', type: 'rss', url: 'https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_anthropic_research.xml', category: 'RSS Feeds', enabled: true },
   { id: 'import-ai',        name: 'Import AI Newsletter', type: 'rss', url: 'https://importai.substack.com/feed', category: 'RSS Feeds', enabled: true },
   { id: 'the-gradient',     name: 'The Gradient', type: 'rss', url: 'https://thegradient.pub/rss/', category: 'RSS Feeds', enabled: true },
   { id: 'ahead-of-ai',      name: 'Ahead of AI (Raschka)', type: 'rss', url: 'https://magazine.sebastianraschka.com/feed', category: 'RSS Feeds', enabled: true },
@@ -622,6 +622,14 @@ function parseCurationResponse(raw: string): CurationResult {
   if (cleaned.startsWith('```')) {
     cleaned = cleaned.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
   }
+  // Extract JSON object if surrounded by non-JSON text
+  if (!cleaned.startsWith('{')) {
+    const start = cleaned.indexOf('{');
+    const end = cleaned.lastIndexOf('}');
+    if (start !== -1 && end !== -1) {
+      cleaned = cleaned.substring(start, end + 1);
+    }
+  }
 
   const parsed = JSON.parse(cleaned);
 
@@ -664,7 +672,7 @@ async function callAnthropic(settings: AIWeeklySettings, system: string, user: s
     },
     body: JSON.stringify({
       model: settings.anthropicModel,
-      max_tokens: 4096,
+      max_tokens: 8192,
       system,
       messages: [{ role: 'user', content: user }],
     }),
@@ -691,6 +699,7 @@ async function callOpenAICompatible(settings: AIWeeklySettings, system: string, 
         { role: 'user', content: user },
       ],
       temperature: 0.3,
+      max_tokens: 8192,
       response_format: { type: 'json_object' },
     }),
   });
@@ -714,6 +723,7 @@ async function callGemini(settings: AIWeeklySettings, system: string, user: stri
       generationConfig: {
         responseMimeType: 'application/json',
         temperature: 0.3,
+        maxOutputTokens: 8192,
       },
     }),
   });
@@ -737,6 +747,10 @@ async function callOllama(settings: AIWeeklySettings, system: string, user: stri
       ],
       stream: false,
       format: 'json',
+      options: {
+        num_ctx: 16384,
+        num_predict: 8192,
+      },
     }),
   });
   const data = response.json;
@@ -996,6 +1010,32 @@ class DigestPreviewModal extends Modal {
 }
 
 // ============================================================================
+// FOLDER SUGGEST
+// ============================================================================
+
+class FolderSuggest extends AbstractInputSuggest<TFolder> {
+  getSuggestions(query: string): TFolder[] {
+    const folders: TFolder[] = [];
+    const lowerQuery = query.toLowerCase();
+    this.app.vault.getAllLoadedFiles().forEach(f => {
+      if (f instanceof TFolder && f.path.toLowerCase().includes(lowerQuery)) {
+        folders.push(f);
+      }
+    });
+    return folders.sort((a, b) => a.path.localeCompare(b.path));
+  }
+
+  renderSuggestion(folder: TFolder, el: HTMLElement): void {
+    el.setText(folder.path || '/');
+  }
+
+  selectSuggestion(folder: TFolder): void {
+    this.setValue(folder.path);
+    this.close();
+  }
+}
+
+// ============================================================================
 // SETTINGS TAB
 // ============================================================================
 
@@ -1182,7 +1222,7 @@ class AIWeeklySettingTab extends PluginSettingTab {
             }));
         new Setting(section)
           .setName('Model')
-          .setDesc('Model name (as pulled in Ollama)')
+          .setDesc('Exact model name from Ollama. Run "ollama list" in terminal to see installed models — use the name from the first column (e.g. "llama3.1", "gemma2").')
           .addText(text => text
             .setPlaceholder('llama3')
             .setValue(this.plugin.settings.ollamaModel)
@@ -1362,13 +1402,15 @@ class AIWeeklySettingTab extends PluginSettingTab {
     new Setting(section)
       .setName('Output folder')
       .setDesc('Vault-relative path for digest notes')
-      .addText(text => text
-        .setPlaceholder('AI-Briefing')
-        .setValue(this.plugin.settings.outputFolder)
-        .onChange(async (value) => {
-          this.plugin.settings.outputFolder = value;
-          await this.plugin.saveSettings();
-        }));
+      .addText(text => {
+        text.setPlaceholder('AI-Briefing')
+          .setValue(this.plugin.settings.outputFolder)
+          .onChange(async (value) => {
+            this.plugin.settings.outputFolder = value;
+            await this.plugin.saveSettings();
+          });
+        new FolderSuggest(this.app, text.inputEl);
+      });
 
     new Setting(section)
       .setName('Language')
@@ -1449,6 +1491,7 @@ class AIWeeklySettingTab extends PluginSettingTab {
 export default class AIWeeklyPlugin extends Plugin {
   settings: AIWeeklySettings = DEFAULT_SETTINGS;
   cache: PluginCache = { articles: [] };
+  private initialCheckTimeout: number | null = null;
 
   async onload() {
     await this.loadPluginData();
@@ -1482,13 +1525,13 @@ export default class AIWeeklyPlugin extends Plugin {
     );
 
     // Initial schedule check (delayed to let Obsidian finish loading)
-    setTimeout(() => this.checkSchedule(), 10_000);
-
-    console.log('AI Briefing plugin loaded.');
+    this.initialCheckTimeout = window.setTimeout(() => this.checkSchedule(), 10_000);
   }
 
   onunload() {
-    console.log('AI Briefing plugin unloaded.');
+    if (this.initialCheckTimeout != null) {
+      window.clearTimeout(this.initialCheckTimeout);
+    }
   }
 
   async loadPluginData() {
@@ -1542,6 +1585,11 @@ export default class AIWeeklyPlugin extends Plugin {
     new Notice(`AI Briefing: Curating ${weekArticles.length} articles with ${providerName}...`);
 
     try {
+      // Mark digest as run immediately to prevent double-triggering from schedule checker
+      const weekStr = currentWeekStr();
+      this.settings.lastDigestWeek = weekStr;
+      await this.saveSettings();
+
       const provider = createLLMProvider(this.settings);
       const result = await provider.curate(weekArticles, this.settings.language, this.settings.maxArticlesPerDigest);
 
@@ -1551,8 +1599,6 @@ export default class AIWeeklyPlugin extends Plugin {
         this.settings,
         async (confirmedResult: CurationResult) => {
           await saveDigestNote(this.app, confirmedResult, this.settings);
-          this.settings.lastDigestWeek = currentWeekStr();
-          await this.saveSettings();
         },
       ).open();
     } catch (error) {
@@ -1588,7 +1634,6 @@ export default class AIWeeklyPlugin extends Plugin {
       currentHour >= this.settings.digestHour
     ) {
       await this.runDigest();
-      // lastDigestWeek is set in the modal confirm callback
     }
   }
 }

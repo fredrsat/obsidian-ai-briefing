@@ -1,9 +1,10 @@
 {
-  "id": "obsidian-ai-briefing",
+  "id": "ai-briefing",
   "name": "AI Briefing",
   "version": "1.0.0",
   "minAppVersion": "1.4.0",
-  "description": "Automated AI news briefing generator with multi-provider LLM curation",
+  "description": "Collect AI news from 14+ sources and generate curated weekly briefing notes using your choice of LLM provider.",
   "author": "fredrsat",
+  "authorUrl": "https://github.com/fredrsat",
   "isDesktopOnly": true
 }

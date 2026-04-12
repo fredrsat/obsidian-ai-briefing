@@ -57,7 +57,7 @@ The OpenAI-compatible provider works with any service that implements the OpenAI
 ### Manual Installation
 
 1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/fredrsat/obsidian-ai-briefing/releases)
-2. Create a folder: `<your-vault>/.obsidian/plugins/obsidian-ai-briefing/`
+2. Create a folder: `<your-vault>/.obsidian/plugins/ai-briefing/`
 3. Copy the three files into that folder
 4. In Obsidian: Settings > Community plugins > disable Restricted mode > enable "AI Briefing"
 
@@ -104,6 +104,22 @@ Each briefing is a Markdown note with:
 - **Categorized sections** — articles grouped by theme (LLMs, Computer Vision, Robotics, AI Policy, Tools & Frameworks, Research Papers, Industry News)
 - **Per-article info** — title (linked), source, relevance score, LLM-written summary
 - **Reflections section** — empty section for your own notes
+
+## Network Disclosure
+
+This plugin makes outbound HTTPS requests to the following services:
+
+**News sources (article collection):**
+- RSS feeds: MIT Tech Review, deeplearning.ai, Google AI Blog, OpenAI Blog, Import AI, The Gradient, Ahead of AI, AI News, and a community-maintained Anthropic Research feed (via GitHub)
+- APIs: HuggingFace (huggingface.co), Hacker News (hn.algolia.com), ArXiv (export.arxiv.org), Reddit (reddit.com), GitHub (api.github.com)
+
+**LLM providers (digest curation) — only the one you configure:**
+- Anthropic API (api.anthropic.com)
+- OpenAI-compatible endpoints (api.openai.com, api.groq.com, openrouter.ai, api.mistral.ai, or custom)
+- Google Gemini API (generativelanguage.googleapis.com)
+- Ollama (localhost, no external network)
+
+No data is sent to any service beyond what is needed for the configured features. No telemetry or analytics are collected.
 
 ## Security
 
