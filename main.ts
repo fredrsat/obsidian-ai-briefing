@@ -1,3 +1,4 @@
+/* eslint-disable obsidianmd/ui/sentence-case -- product names, model names, and API placeholders are intentionally cased */
 import { AbstractInputSuggest, App, Modal, Notice, Plugin, PluginSettingTab, Setting, requestUrl, TFile, TFolder } from 'obsidian';
 
 // ============================================================================
@@ -1002,7 +1003,7 @@ class DigestPreviewModal extends Modal {
   private renderArticleRow(container: HTMLElement, article: CuratedArticle) {
     const row = container.createDiv({ cls: 'ai-weekly-article-row' });
 
-    const checkbox = row.createEl('input', { type: 'checkbox' }) as HTMLInputElement;
+    const checkbox = row.createEl('input', { type: 'checkbox' });
     checkbox.checked = article.included;
     checkbox.addEventListener('change', () => { article.included = checkbox.checked; });
     this.checkboxes.set(article.id, checkbox);
@@ -1263,7 +1264,7 @@ class AIWeeklySettingTab extends PluginSettingTab {
 
     for (const [groupName, groupSources] of groups) {
       const groupDiv = section.createDiv({ cls: 'ai-weekly-source-group' });
-      groupDiv.createEl('h4', { text: groupName });
+      new Setting(groupDiv).setName(groupName).setHeading();
 
       for (const source of groupSources) {
         new Setting(groupDiv)
@@ -1307,7 +1308,7 @@ class AIWeeklySettingTab extends PluginSettingTab {
     new Setting(form)
       .setName('Feed name')
       .addText(text => text
-        .setPlaceholder('My AI Feed')
+        .setPlaceholder('My feed')
         .onChange(value => { feedName = value; }));
 
     new Setting(form)
@@ -1418,7 +1419,7 @@ class AIWeeklySettingTab extends PluginSettingTab {
       .setName('Output folder')
       .setDesc('Vault-relative path for digest notes')
       .addText(text => {
-        text.setPlaceholder('AI-Briefing')
+        text.setPlaceholder('ai-briefing')
           .setValue(this.plugin.settings.outputFolder);
         // Save on blur (covers both manual typing and folder suggest selection)
         text.inputEl.addEventListener('blur', () => {
@@ -1436,7 +1437,7 @@ class AIWeeklySettingTab extends PluginSettingTab {
       .setDesc('Language for digest summaries')
       .addDropdown(dropdown => dropdown
         .addOption('en', 'English')
-        .addOption('no', 'Norwegian (Norsk)')
+                .addOption('no', 'Norwegian (Norsk)')
         .setValue(this.plugin.settings.language)
         .onChange((value: string) => {
           this.plugin.settings.language = value as 'en' | 'no';
@@ -1542,11 +1543,11 @@ export default class AIWeeklyPlugin extends Plugin {
 
     // Schedule checker every 30 minutes
     this.registerInterval(
-      window.setInterval(() => this.checkSchedule(), 30 * 60 * 1000) as unknown as number
+      window.setInterval(() => { void this.checkSchedule(); }, 30 * 60 * 1000) as unknown as number
     );
 
     // Initial schedule check (delayed to let Obsidian finish loading)
-    this.initialCheckTimeout = window.setTimeout(() => this.checkSchedule(), 10_000);
+    this.initialCheckTimeout = window.setTimeout(() => { void this.checkSchedule(); }, 10_000);
   }
 
   onunload() {
