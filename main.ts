@@ -498,7 +498,7 @@ function getActiveSources(settings: AIWeeklySettings): SourceDefinition[] {
   const custom: SourceDefinition[] = settings.customSources.map(c => ({
     id: c.id,
     name: c.name,
-    type: 'rss' as SourceType,
+    type: 'rss',
     url: c.url,
     category: 'Custom Feeds',
     enabled: c.enabled,
@@ -637,17 +637,19 @@ function parseCurationResponse(raw: string): CurationResult {
     throw new Error('Invalid curation response: missing articles array');
   }
 
+  const str = (v: unknown): string => typeof v === 'string' ? v : '';
+
   const articles: CuratedArticle[] = parsed.articles.map((a: Record<string, unknown>) => ({
-    id: String(a.id || ''),
-    title: String(a.title || ''),
-    url: String(a.url || ''),
-    source: String(a.source || ''),
-    sourceName: String(a.sourceName || ''),
-    date: String(a.date || ''),
-    summary: String(a.summary || ''),
+    id: str(a.id),
+    title: str(a.title),
+    url: str(a.url),
+    source: str(a.source),
+    sourceName: str(a.sourceName),
+    date: str(a.date),
+    summary: str(a.summary),
     originalSummary: '',
-    category: ARTICLE_CATEGORIES.includes(a.category as ArticleCategory)
-      ? (a.category as ArticleCategory)
+    category: typeof a.category === 'string' && ARTICLE_CATEGORIES.includes(a.category as ArticleCategory)
+      ? a.category as ArticleCategory
       : 'Industry News',
     relevanceScore: typeof a.relevanceScore === 'number' ? a.relevanceScore : 5,
     isArticleOfTheWeek: Boolean(a.isArticleOfTheWeek),
@@ -656,7 +658,7 @@ function parseCurationResponse(raw: string): CurationResult {
 
   return {
     articles,
-    articleOfTheWeekId: String(parsed.articleOfTheWeekId || ''),
+    articleOfTheWeekId: str(parsed.articleOfTheWeekId),
   };
 }
 
@@ -877,9 +879,16 @@ async function saveDigestNote(app: App, result: CurationResult, settings: AIWeek
   let fileName = `AI Briefing - Week ${week}, ${year}.md`;
   let fullPath = `${folderPath}/${fileName}`;
 
-  // Ensure folder exists
-  if (!app.vault.getAbstractFileByPath(folderPath)) {
-    await app.vault.createFolder(folderPath);
+  // Ensure folder exists (create parent folders as needed)
+  const parts = folderPath.split('/');
+  let current = '';
+  for (const part of parts) {
+    current = current ? `${current}/${part}` : part;
+    try {
+      await app.vault.createFolder(current);
+    } catch {
+      // Folder already exists — ignore
+    }
   }
 
   // Handle duplicate filename
@@ -891,7 +900,9 @@ async function saveDigestNote(app: App, result: CurationResult, settings: AIWeek
   }
 
   const file = await app.vault.create(fullPath, content);
-  await app.workspace.getLeaf(false).openFile(file as TFile);
+  if (file instanceof TFile) {
+    await app.workspace.getLeaf(false).openFile(file);
+  }
   new Notice(`AI Briefing: Digest saved to ${fullPath}`);
 }
 
@@ -902,10 +913,10 @@ async function saveDigestNote(app: App, result: CurationResult, settings: AIWeek
 class DigestPreviewModal extends Modal {
   private result: CurationResult;
   private settings: AIWeeklySettings;
-  private onConfirm: (result: CurationResult) => void;
+  private onConfirm: (result: CurationResult) => Promise<void>;
   private checkboxes: Map<string, HTMLInputElement> = new Map();
 
-  constructor(app: App, result: CurationResult, settings: AIWeeklySettings, onConfirm: (result: CurationResult) => void) {
+  constructor(app: App, result: CurationResult, settings: AIWeeklySettings, onConfirm: (result: CurationResult) => Promise<void>) {
     super(app);
     this.result = result;
     this.settings = settings;
@@ -926,7 +937,7 @@ class DigestPreviewModal extends Modal {
     const { contentEl } = this;
     contentEl.empty();
 
-    contentEl.createEl('h2', { text: 'AI Briefing Preview' });
+    contentEl.createEl('h2', { text: 'AI Briefing preview' });
 
     const articleCount = this.result.articles.length;
     contentEl.createEl('p', {
@@ -939,7 +950,7 @@ class DigestPreviewModal extends Modal {
       || this.result.articles.find(a => a.isArticleOfTheWeek);
     if (aotw) {
       const aotwContainer = contentEl.createDiv({ cls: 'ai-weekly-article-of-week' });
-      aotwContainer.createEl('h3', { text: 'Article of the Week' });
+      aotwContainer.createEl('h3', { text: 'Article of the week' });
       this.renderArticleRow(aotwContainer, aotw);
     }
 
@@ -962,13 +973,13 @@ class DigestPreviewModal extends Modal {
     const leftButtons = buttonBar.createDiv({ cls: 'ai-weekly-button-bar-left' });
     const rightButtons = buttonBar.createDiv({ cls: 'ai-weekly-button-bar-right' });
 
-    const selectAllBtn = leftButtons.createEl('button', { text: 'Select All' });
+    const selectAllBtn = leftButtons.createEl('button', { text: 'Select all' });
     selectAllBtn.addEventListener('click', () => {
       this.checkboxes.forEach((cb) => { cb.checked = true; });
       this.result.articles.forEach(a => { a.included = true; });
     });
 
-    const deselectAllBtn = leftButtons.createEl('button', { text: 'Deselect All' });
+    const deselectAllBtn = leftButtons.createEl('button', { text: 'Deselect all' });
     deselectAllBtn.addEventListener('click', () => {
       this.checkboxes.forEach((cb) => { cb.checked = false; });
       this.result.articles.forEach(a => { a.included = false; });
@@ -977,10 +988,14 @@ class DigestPreviewModal extends Modal {
     const cancelBtn = rightButtons.createEl('button', { text: 'Cancel' });
     cancelBtn.addEventListener('click', () => this.close());
 
-    const confirmBtn = rightButtons.createEl('button', { text: 'Generate Digest', cls: 'mod-cta' });
+    const confirmBtn = rightButtons.createEl('button', { text: 'Generate digest', cls: 'mod-cta' });
     confirmBtn.addEventListener('click', () => {
-      this.onConfirm(this.result);
-      this.close();
+      this.onConfirm(this.result)
+        .catch((error) => {
+          new Notice(`AI Briefing: Failed to save digest — ${error}`);
+          console.error('AI Briefing save error:', error);
+        })
+        .finally(() => this.close());
     });
   }
 
@@ -1060,7 +1075,7 @@ class AIWeeklySettingTab extends PluginSettingTab {
 
   private renderLLMSection(containerEl: HTMLElement) {
     const section = containerEl.createDiv({ cls: 'ai-weekly-settings-section' });
-    section.createEl('h3', { text: 'LLM Provider' });
+    new Setting(section).setName('LLM provider').setHeading();
 
     new Setting(section)
       .setName('Provider')
@@ -1071,25 +1086,25 @@ class AIWeeklySettingTab extends PluginSettingTab {
         .addOption('gemini', 'Google Gemini')
         .addOption('ollama', 'Ollama (Local)')
         .setValue(this.plugin.settings.llmProvider)
-        .onChange(async (value: string) => {
+        .onChange((value: string) => {
           this.plugin.settings.llmProvider = value as LLMProviderType;
-          await this.plugin.saveSettings();
+          void this.plugin.saveSettings();
           this.display();
         }));
 
     switch (this.plugin.settings.llmProvider) {
       case 'anthropic':
         new Setting(section)
-          .setName('API Key')
+          .setName('API key')
           .setDesc('Your Anthropic API key')
           .addText(text => {
             text.inputEl.type = 'password';
             text.inputEl.autocomplete = 'off';
             text.setPlaceholder('sk-ant-...')
               .setValue(this.plugin.settings.anthropicApiKey)
-              .onChange(async (value) => {
+              .onChange((value) => {
                 this.plugin.settings.anthropicApiKey = value;
-                await this.plugin.saveSettings();
+                void this.plugin.saveSettings();
               });
           });
         new Setting(section)
@@ -1099,15 +1114,15 @@ class AIWeeklySettingTab extends PluginSettingTab {
             .addOption('claude-sonnet-4-20250514', 'Claude Sonnet 4')
             .addOption('claude-opus-4-20250514', 'Claude Opus 4')
             .setValue(this.plugin.settings.anthropicModel)
-            .onChange(async (value) => {
+            .onChange((value) => {
               this.plugin.settings.anthropicModel = value;
-              await this.plugin.saveSettings();
+              void this.plugin.saveSettings();
             }));
         break;
 
       case 'openai-compatible':
         new Setting(section)
-          .setName('Service Preset')
+          .setName('Service preset')
           .setDesc('Select a service or use a custom endpoint')
           .addDropdown(dropdown => {
             for (const [key, preset] of Object.entries(OPENAI_COMPAT_PRESETS)) {
@@ -1115,7 +1130,7 @@ class AIWeeklySettingTab extends PluginSettingTab {
             }
             dropdown
               .setValue(this.plugin.settings.openaiCompatPreset)
-              .onChange(async (value: string) => {
+              .onChange((value: string) => {
                 const preset = value as OpenAICompatPreset;
                 this.plugin.settings.openaiCompatPreset = preset;
                 if (preset !== 'custom') {
@@ -1125,7 +1140,7 @@ class AIWeeklySettingTab extends PluginSettingTab {
                     this.plugin.settings.openaiCompatModel = models[0];
                   }
                 }
-                await this.plugin.saveSettings();
+                void this.plugin.saveSettings();
                 this.display();
               });
           });
@@ -1135,20 +1150,20 @@ class AIWeeklySettingTab extends PluginSettingTab {
           .addText(text => text
             .setPlaceholder('https://api.openai.com/v1')
             .setValue(this.plugin.settings.openaiCompatEndpoint)
-            .onChange(async (value) => {
+            .onChange((value) => {
               this.plugin.settings.openaiCompatEndpoint = value;
-              await this.plugin.saveSettings();
+              void this.plugin.saveSettings();
             }));
         new Setting(section)
-          .setName('API Key')
+          .setName('API key')
           .addText(text => {
             text.inputEl.type = 'password';
             text.inputEl.autocomplete = 'off';
             text.setPlaceholder('sk-...')
               .setValue(this.plugin.settings.openaiCompatApiKey)
-              .onChange(async (value) => {
+              .onChange((value) => {
                 this.plugin.settings.openaiCompatApiKey = value;
-                await this.plugin.saveSettings();
+                void this.plugin.saveSettings();
               });
           });
         {
@@ -1162,9 +1177,9 @@ class AIWeeklySettingTab extends PluginSettingTab {
                 }
                 dropdown
                   .setValue(this.plugin.settings.openaiCompatModel)
-                  .onChange(async (value) => {
+                  .onChange((value) => {
                     this.plugin.settings.openaiCompatModel = value;
-                    await this.plugin.saveSettings();
+                    void this.plugin.saveSettings();
                   });
               });
           } else {
@@ -1174,9 +1189,9 @@ class AIWeeklySettingTab extends PluginSettingTab {
               .addText(text => text
                 .setPlaceholder('gpt-4o')
                 .setValue(this.plugin.settings.openaiCompatModel)
-                .onChange(async (value) => {
+                .onChange((value) => {
                   this.plugin.settings.openaiCompatModel = value;
-                  await this.plugin.saveSettings();
+                  void this.plugin.saveSettings();
                 }));
           }
         }
@@ -1184,16 +1199,16 @@ class AIWeeklySettingTab extends PluginSettingTab {
 
       case 'gemini':
         new Setting(section)
-          .setName('API Key')
+          .setName('API key')
           .setDesc('Your Google AI Studio API key')
           .addText(text => {
             text.inputEl.type = 'password';
             text.inputEl.autocomplete = 'off';
             text.setPlaceholder('AIza...')
               .setValue(this.plugin.settings.geminiApiKey)
-              .onChange(async (value) => {
+              .onChange((value) => {
                 this.plugin.settings.geminiApiKey = value;
-                await this.plugin.saveSettings();
+                void this.plugin.saveSettings();
               });
           });
         new Setting(section)
@@ -1203,9 +1218,9 @@ class AIWeeklySettingTab extends PluginSettingTab {
             .addOption('gemini-2.5-pro', 'Gemini 2.5 Pro')
             .addOption('gemini-2.5-flash', 'Gemini 2.5 Flash')
             .setValue(this.plugin.settings.geminiModel)
-            .onChange(async (value) => {
+            .onChange((value) => {
               this.plugin.settings.geminiModel = value;
-              await this.plugin.saveSettings();
+              void this.plugin.saveSettings();
             }));
         break;
 
@@ -1216,9 +1231,9 @@ class AIWeeklySettingTab extends PluginSettingTab {
           .addText(text => text
             .setPlaceholder('http://localhost:11434')
             .setValue(this.plugin.settings.ollamaEndpoint)
-            .onChange(async (value) => {
+            .onChange((value) => {
               this.plugin.settings.ollamaEndpoint = value;
-              await this.plugin.saveSettings();
+              void this.plugin.saveSettings();
             }));
         new Setting(section)
           .setName('Model')
@@ -1226,9 +1241,9 @@ class AIWeeklySettingTab extends PluginSettingTab {
           .addText(text => text
             .setPlaceholder('llama3')
             .setValue(this.plugin.settings.ollamaModel)
-            .onChange(async (value) => {
+            .onChange((value) => {
               this.plugin.settings.ollamaModel = value;
-              await this.plugin.saveSettings();
+              void this.plugin.saveSettings();
             }));
         break;
     }
@@ -1236,7 +1251,7 @@ class AIWeeklySettingTab extends PluginSettingTab {
 
   private renderSourcesSection(containerEl: HTMLElement) {
     const section = containerEl.createDiv({ cls: 'ai-weekly-settings-section' });
-    section.createEl('h3', { text: 'News Sources' });
+    new Setting(section).setName('News sources').setHeading();
 
     const sources = getActiveSources(this.plugin.settings);
     const groups = new Map<string, SourceDefinition[]>();
@@ -1256,7 +1271,7 @@ class AIWeeklySettingTab extends PluginSettingTab {
           .setDesc(truncate(source.url, 60))
           .addToggle(toggle => toggle
             .setValue(source.enabled)
-            .onChange(async (value) => {
+            .onChange((value) => {
               // For custom sources, update directly
               const customIdx = this.plugin.settings.customSources.findIndex(c => c.id === source.id);
               if (customIdx >= 0) {
@@ -1264,17 +1279,17 @@ class AIWeeklySettingTab extends PluginSettingTab {
               } else {
                 this.plugin.settings.sourceOverrides[source.id] = value;
               }
-              await this.plugin.saveSettings();
+              void this.plugin.saveSettings();
             }));
       }
     }
 
     // Add custom feed section
     new Setting(section)
-      .setName('Add Custom RSS Feed')
+      .setName('Add custom RSS feed')
       .setDesc('Add your own RSS feed source')
       .addButton(button => button
-        .setButtonText('Add Feed')
+        .setButtonText('Add feed')
         .onClick(() => {
           this.renderCustomFeedForm(section);
         }));
@@ -1290,7 +1305,7 @@ class AIWeeklySettingTab extends PluginSettingTab {
     let feedUrl = '';
 
     new Setting(form)
-      .setName('Feed Name')
+      .setName('Feed name')
       .addText(text => text
         .setPlaceholder('My AI Feed')
         .onChange(value => { feedName = value; }));
@@ -1305,7 +1320,7 @@ class AIWeeklySettingTab extends PluginSettingTab {
       .addButton(button => button
         .setButtonText('Save')
         .setCta()
-        .onClick(async () => {
+        .onClick(() => {
           if (!feedName || !feedUrl) {
             new Notice('Please enter both a name and URL');
             return;
@@ -1321,7 +1336,7 @@ class AIWeeklySettingTab extends PluginSettingTab {
             category: 'Custom Feeds',
             enabled: true,
           });
-          await this.plugin.saveSettings();
+          void this.plugin.saveSettings();
           this.display();
         }))
       .addButton(button => button
@@ -1331,16 +1346,16 @@ class AIWeeklySettingTab extends PluginSettingTab {
 
   private renderScheduleSection(containerEl: HTMLElement) {
     const section = containerEl.createDiv({ cls: 'ai-weekly-settings-section' });
-    section.createEl('h3', { text: 'Schedule' });
+    new Setting(section).setName('Schedule').setHeading();
 
     new Setting(section)
       .setName('Automatic daily collection')
       .setDesc('Automatically collect articles from sources daily')
       .addToggle(toggle => toggle
         .setValue(this.plugin.settings.autoCollectEnabled)
-        .onChange(async (value) => {
+        .onChange((value) => {
           this.plugin.settings.autoCollectEnabled = value;
-          await this.plugin.saveSettings();
+          void this.plugin.saveSettings();
         }));
 
     new Setting(section)
@@ -1350,9 +1365,9 @@ class AIWeeklySettingTab extends PluginSettingTab {
         .setLimits(0, 23, 1)
         .setValue(this.plugin.settings.collectHour)
         .setDynamicTooltip()
-        .onChange(async (value) => {
+        .onChange((value) => {
           this.plugin.settings.collectHour = value;
-          await this.plugin.saveSettings();
+          void this.plugin.saveSettings();
         }));
 
     new Setting(section)
@@ -1360,9 +1375,9 @@ class AIWeeklySettingTab extends PluginSettingTab {
       .setDesc('Automatically generate a digest each week')
       .addToggle(toggle => toggle
         .setValue(this.plugin.settings.autoDigestEnabled)
-        .onChange(async (value) => {
+        .onChange((value) => {
           this.plugin.settings.autoDigestEnabled = value;
-          await this.plugin.saveSettings();
+          void this.plugin.saveSettings();
         }));
 
     new Setting(section)
@@ -1377,9 +1392,9 @@ class AIWeeklySettingTab extends PluginSettingTab {
         .addOption('5', 'Friday')
         .addOption('6', 'Saturday')
         .setValue(String(this.plugin.settings.digestDay))
-        .onChange(async (value) => {
+        .onChange((value) => {
           this.plugin.settings.digestDay = Number(value);
-          await this.plugin.saveSettings();
+          void this.plugin.saveSettings();
         }));
 
     new Setting(section)
@@ -1389,26 +1404,30 @@ class AIWeeklySettingTab extends PluginSettingTab {
         .setLimits(0, 23, 1)
         .setValue(this.plugin.settings.digestHour)
         .setDynamicTooltip()
-        .onChange(async (value) => {
+        .onChange((value) => {
           this.plugin.settings.digestHour = value;
-          await this.plugin.saveSettings();
+          void this.plugin.saveSettings();
         }));
   }
 
   private renderOutputSection(containerEl: HTMLElement) {
     const section = containerEl.createDiv({ cls: 'ai-weekly-settings-section' });
-    section.createEl('h3', { text: 'Output' });
+    new Setting(section).setName('Output').setHeading();
 
     new Setting(section)
       .setName('Output folder')
       .setDesc('Vault-relative path for digest notes')
       .addText(text => {
         text.setPlaceholder('AI-Briefing')
-          .setValue(this.plugin.settings.outputFolder)
-          .onChange(async (value) => {
+          .setValue(this.plugin.settings.outputFolder);
+        // Save on blur (covers both manual typing and folder suggest selection)
+        text.inputEl.addEventListener('blur', () => {
+          const value = text.inputEl.value;
+          if (value !== this.plugin.settings.outputFolder) {
             this.plugin.settings.outputFolder = value;
-            await this.plugin.saveSettings();
-          });
+            void this.plugin.saveSettings();
+          }
+        });
         new FolderSuggest(this.app, text.inputEl);
       });
 
@@ -1419,9 +1438,9 @@ class AIWeeklySettingTab extends PluginSettingTab {
         .addOption('en', 'English')
         .addOption('no', 'Norwegian (Norsk)')
         .setValue(this.plugin.settings.language)
-        .onChange(async (value: string) => {
+        .onChange((value: string) => {
           this.plugin.settings.language = value as 'en' | 'no';
-          await this.plugin.saveSettings();
+          void this.plugin.saveSettings();
         }));
 
     new Setting(section)
@@ -1431,53 +1450,55 @@ class AIWeeklySettingTab extends PluginSettingTab {
         .setLimits(5, 50, 1)
         .setValue(this.plugin.settings.maxArticlesPerDigest)
         .setDynamicTooltip()
-        .onChange(async (value) => {
+        .onChange((value) => {
           this.plugin.settings.maxArticlesPerDigest = value;
-          await this.plugin.saveSettings();
+          void this.plugin.saveSettings();
         }));
   }
 
   private renderManualControls(containerEl: HTMLElement) {
     const section = containerEl.createDiv({ cls: 'ai-weekly-settings-section' });
-    section.createEl('h3', { text: 'Manual Controls' });
+    new Setting(section).setName('Manual controls').setHeading();
 
     new Setting(section)
       .setName('Collect articles now')
       .setDesc(`Cache has ${this.plugin.cache.articles.length} articles`)
       .addButton(button => button
-        .setButtonText('Collect Now')
-        .onClick(async () => {
+        .setButtonText('Collect now')
+        .onClick(() => {
           button.setDisabled(true);
           button.setButtonText('Collecting...');
-          await this.plugin.runCollection();
-          button.setDisabled(false);
-          button.setButtonText('Collect Now');
-          this.display();
+          void this.plugin.runCollection().then(() => {
+            button.setDisabled(false);
+            button.setButtonText('Collect now');
+            this.display();
+          });
         }));
 
     new Setting(section)
       .setName('Generate digest')
       .setDesc('Curate cached articles and create a digest note')
       .addButton(button => button
-        .setButtonText('Generate Digest')
+        .setButtonText('Generate digest')
         .setCta()
-        .onClick(async () => {
+        .onClick(() => {
           button.setDisabled(true);
           button.setButtonText('Generating...');
-          await this.plugin.runDigest();
-          button.setDisabled(false);
-          button.setButtonText('Generate Digest');
+          void this.plugin.runDigest().then(() => {
+            button.setDisabled(false);
+            button.setButtonText('Generate digest');
+          });
         }));
 
     new Setting(section)
       .setName('Clear cache')
       .setDesc('Remove all cached articles')
       .addButton(button => button
-        .setButtonText('Clear Cache')
+        .setButtonText('Clear cache')
         .setWarning()
-        .onClick(async () => {
+        .onClick(() => {
           this.plugin.cache.articles = [];
-          await this.plugin.saveCache();
+          void this.plugin.saveCache();
           new Notice('AI Briefing: Cache cleared.');
           this.display();
         }));
@@ -1500,21 +1521,21 @@ export default class AIWeeklyPlugin extends Plugin {
     this.addCommand({
       id: 'collect-articles',
       name: 'Collect articles now',
-      callback: () => this.runCollection(),
+      callback: () => { void this.runCollection(); },
     });
 
     this.addCommand({
       id: 'generate-digest',
       name: 'Generate weekly digest',
-      callback: () => this.runDigest(),
+      callback: () => { void this.runDigest(); },
     });
 
     this.addCommand({
       id: 'clear-cache',
       name: 'Clear article cache',
-      callback: async () => {
+      callback: () => {
         this.cache.articles = [];
-        await this.saveCache();
+        void this.saveCache();
         new Notice('AI Briefing: Cache cleared.');
       },
     });
@@ -1541,11 +1562,11 @@ export default class AIWeeklyPlugin extends Plugin {
   }
 
   async saveSettings() {
-    await this.saveData({ settings: this.settings, cache: this.cache } as PersistedData);
+    await this.saveData({ settings: this.settings, cache: this.cache });
   }
 
   async saveCache() {
-    await this.saveData({ settings: this.settings, cache: this.cache } as PersistedData);
+    await this.saveData({ settings: this.settings, cache: this.cache });
   }
 
   async runCollection() {
