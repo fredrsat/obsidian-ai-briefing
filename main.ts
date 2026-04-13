@@ -1,4 +1,3 @@
-/* eslint-disable obsidianmd/ui/sentence-case -- product names, model names, and API placeholders are intentionally cased */
 import { AbstractInputSuggest, App, Modal, Notice, Plugin, PluginSettingTab, Setting, requestUrl, TFile, TFolder } from 'obsidian';
 
 // ============================================================================
@@ -938,7 +937,7 @@ class DigestPreviewModal extends Modal {
     const { contentEl } = this;
     contentEl.empty();
 
-    contentEl.createEl('h2', { text: 'AI Briefing preview' });
+    contentEl.createEl('h2', { text: 'AI briefing preview' });
 
     const articleCount = this.result.articles.length;
     contentEl.createEl('p', {
@@ -1076,16 +1075,16 @@ class AIWeeklySettingTab extends PluginSettingTab {
 
   private renderLLMSection(containerEl: HTMLElement) {
     const section = containerEl.createDiv({ cls: 'ai-weekly-settings-section' });
-    new Setting(section).setName('LLM provider').setHeading();
+    new Setting(section).setName('Provider').setHeading();
 
     new Setting(section)
       .setName('Provider')
-      .setDesc('Choose your LLM provider for article curation')
+      .setDesc('Choose your provider for article curation')
       .addDropdown(dropdown => dropdown
-        .addOption('anthropic', 'Anthropic (Claude)')
-        .addOption('openai-compatible', 'OpenAI-Compatible')
-        .addOption('gemini', 'Google Gemini')
-        .addOption('ollama', 'Ollama (Local)')
+        .addOption('anthropic', 'Anthropic')
+        .addOption('openai-compatible', 'Custom API')
+        .addOption('gemini', 'Gemini')
+        .addOption('ollama', 'Ollama (local)')
         .setValue(this.plugin.settings.llmProvider)
         .onChange((value: string) => {
           this.plugin.settings.llmProvider = value as LLMProviderType;
@@ -1097,11 +1096,11 @@ class AIWeeklySettingTab extends PluginSettingTab {
       case 'anthropic':
         new Setting(section)
           .setName('API key')
-          .setDesc('Your Anthropic API key')
+          .setDesc('Anthropic API key')
           .addText(text => {
             text.inputEl.type = 'password';
             text.inputEl.autocomplete = 'off';
-            text.setPlaceholder('sk-ant-...')
+            text.setPlaceholder('')
               .setValue(this.plugin.settings.anthropicApiKey)
               .onChange((value) => {
                 this.plugin.settings.anthropicApiKey = value;
@@ -1111,9 +1110,9 @@ class AIWeeklySettingTab extends PluginSettingTab {
         new Setting(section)
           .setName('Model')
           .addDropdown(dropdown => dropdown
-            .addOption('claude-haiku-4-5-20251001', 'Claude Haiku 4.5')
-            .addOption('claude-sonnet-4-20250514', 'Claude Sonnet 4')
-            .addOption('claude-opus-4-20250514', 'Claude Opus 4')
+            .addOption('claude-haiku-4-5-20251001', 'Claude haiku 4.5')
+            .addOption('claude-sonnet-4-20250514', 'Claude sonnet 4')
+            .addOption('claude-opus-4-20250514', 'Claude opus 4')
             .setValue(this.plugin.settings.anthropicModel)
             .onChange((value) => {
               this.plugin.settings.anthropicModel = value;
@@ -1160,7 +1159,7 @@ class AIWeeklySettingTab extends PluginSettingTab {
           .addText(text => {
             text.inputEl.type = 'password';
             text.inputEl.autocomplete = 'off';
-            text.setPlaceholder('sk-...')
+            text.setPlaceholder('')
               .setValue(this.plugin.settings.openaiCompatApiKey)
               .onChange((value) => {
                 this.plugin.settings.openaiCompatApiKey = value;
@@ -1188,7 +1187,7 @@ class AIWeeklySettingTab extends PluginSettingTab {
               .setName('Model')
               .setDesc('Enter the model name')
               .addText(text => text
-                .setPlaceholder('gpt-4o')
+                .setPlaceholder('')
                 .setValue(this.plugin.settings.openaiCompatModel)
                 .onChange((value) => {
                   this.plugin.settings.openaiCompatModel = value;
@@ -1201,11 +1200,11 @@ class AIWeeklySettingTab extends PluginSettingTab {
       case 'gemini':
         new Setting(section)
           .setName('API key')
-          .setDesc('Your Google AI Studio API key')
+          .setDesc('Gemini API key')
           .addText(text => {
             text.inputEl.type = 'password';
             text.inputEl.autocomplete = 'off';
-            text.setPlaceholder('AIza...')
+            text.setPlaceholder('')
               .setValue(this.plugin.settings.geminiApiKey)
               .onChange((value) => {
                 this.plugin.settings.geminiApiKey = value;
@@ -1215,9 +1214,9 @@ class AIWeeklySettingTab extends PluginSettingTab {
         new Setting(section)
           .setName('Model')
           .addDropdown(dropdown => dropdown
-            .addOption('gemini-2.0-flash', 'Gemini 2.0 Flash (Free)')
-            .addOption('gemini-2.5-pro', 'Gemini 2.5 Pro')
-            .addOption('gemini-2.5-flash', 'Gemini 2.5 Flash')
+            .addOption('gemini-2.0-flash', 'Gemini 2.0 flash (free)')
+            .addOption('gemini-2.5-pro', 'Gemini 2.5 pro')
+            .addOption('gemini-2.5-flash', 'Gemini 2.5 flash')
             .setValue(this.plugin.settings.geminiModel)
             .onChange((value) => {
               this.plugin.settings.geminiModel = value;
@@ -1230,7 +1229,7 @@ class AIWeeklySettingTab extends PluginSettingTab {
           .setName('Endpoint')
           .setDesc('Ollama server URL')
           .addText(text => text
-            .setPlaceholder('http://localhost:11434')
+            .setPlaceholder('')
             .setValue(this.plugin.settings.ollamaEndpoint)
             .onChange((value) => {
               this.plugin.settings.ollamaEndpoint = value;
@@ -1238,9 +1237,9 @@ class AIWeeklySettingTab extends PluginSettingTab {
             }));
         new Setting(section)
           .setName('Model')
-          .setDesc('Exact model name from Ollama. Run "ollama list" in terminal to see installed models — use the name from the first column (e.g. "llama3.1", "gemma2").')
+          .setDesc('Exact model name (run "ollama list" in terminal to see installed models — use the name from the first column).')
           .addText(text => text
-            .setPlaceholder('llama3')
+            .setPlaceholder('')
             .setValue(this.plugin.settings.ollamaModel)
             .onChange((value) => {
               this.plugin.settings.ollamaModel = value;
@@ -1419,7 +1418,7 @@ class AIWeeklySettingTab extends PluginSettingTab {
       .setName('Output folder')
       .setDesc('Vault-relative path for digest notes')
       .addText(text => {
-        text.setPlaceholder('ai-briefing')
+        text.setPlaceholder('')
           .setValue(this.plugin.settings.outputFolder);
         // Save on blur (covers both manual typing and folder suggest selection)
         text.inputEl.addEventListener('blur', () => {
@@ -1437,7 +1436,7 @@ class AIWeeklySettingTab extends PluginSettingTab {
       .setDesc('Language for digest summaries')
       .addDropdown(dropdown => dropdown
         .addOption('en', 'English')
-                .addOption('no', 'Norwegian (Norsk)')
+                .addOption('no', 'Norwegian')
         .setValue(this.plugin.settings.language)
         .onChange((value: string) => {
           this.plugin.settings.language = value as 'en' | 'no';
@@ -1500,7 +1499,7 @@ class AIWeeklySettingTab extends PluginSettingTab {
         .onClick(() => {
           this.plugin.cache.articles = [];
           void this.plugin.saveCache();
-          new Notice('AI Briefing: Cache cleared.');
+          new Notice('AI briefing: cache cleared.');
           this.display();
         }));
   }
@@ -1537,7 +1536,7 @@ export default class AIWeeklyPlugin extends Plugin {
       callback: () => {
         this.cache.articles = [];
         void this.saveCache();
-        new Notice('AI Briefing: Cache cleared.');
+        new Notice('AI briefing: cache cleared.');
       },
     });
 
@@ -1571,7 +1570,7 @@ export default class AIWeeklyPlugin extends Plugin {
   }
 
   async runCollection() {
-    new Notice('AI Briefing: Collecting articles...');
+    new Notice('AI briefing: collecting articles...');
     try {
       const sources = getActiveSources(this.settings);
       const previousCount = this.cache.articles.length;
@@ -1587,7 +1586,7 @@ export default class AIWeeklyPlugin extends Plugin {
         new Notice(`AI Briefing: Collected ${Math.max(0, newCount)} new articles from ${enabledCount} sources.`);
       }
     } catch (error) {
-      new Notice('AI Briefing: Collection failed. Check console for details.');
+      new Notice('AI briefing: collection failed. Check console for details.');
       console.error('AI Briefing collection error:', sanitizeError(error));
     }
   }
@@ -1597,7 +1596,7 @@ export default class AIWeeklyPlugin extends Plugin {
     const weekArticles = this.cache.articles.filter(a => new Date(a.fetchedAt) >= sevenDaysAgo);
 
     if (weekArticles.length === 0) {
-      new Notice('AI Briefing: No articles in cache. Run "Collect articles" first.');
+      new Notice('AI briefing: no articles in cache. Run "collect articles" first.');
       return;
     }
 
