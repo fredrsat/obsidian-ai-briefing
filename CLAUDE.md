@@ -1,50 +1,50 @@
 # obsidian-ai-briefing
 
-Obsidian plugin som genererer ukentlige AI-nyhetsdigest kuratert av LLM.
-Daglig automatisk innsamling fra 14+ kilder, ukentlig kuratert digest med
-preview-modal og konfigurerbar LLM-leverandor.
+Obsidian plugin that generates weekly AI news digests curated by an LLM.
+Daily automatic collection from 14+ sources, weekly curated digest with
+preview modal and configurable LLM provider.
 
 ---
 
 ## Stack
 
-| Del | Teknologi |
+| Part | Technology |
 |---|---|
-| Plugin-rammeverk | Obsidian Plugin API (desktop only) |
-| Sprak | TypeScript |
+| Plugin framework | Obsidian Plugin API (desktop only) |
+| Language | TypeScript |
 | Bundler | esbuild |
-| AI-kurattering | Multi-provider: Anthropic, OpenAI-kompatibel, Google Gemini, Ollama |
-| HTTP | Obsidian `requestUrl` (ingen node-fetch) |
-| Datakilder | RSS/Atom, HuggingFace Papers API, HN Algolia API, ArXiv API, Reddit, GitHub |
-| Persistens | Obsidian `loadData/saveData` (settings + cache i data.json) |
+| AI curation | Multi-provider: Anthropic, OpenAI-compatible, Google Gemini, Ollama |
+| HTTP | Obsidian `requestUrl` (no node-fetch) |
+| Data sources | RSS/Atom, HuggingFace Papers API, HN Algolia API, ArXiv API, Reddit, GitHub |
+| Persistence | Obsidian `loadData/saveData` (settings + cache in data.json) |
 
 ---
 
-## Prosjektstruktur
+## Project Structure
 
 ```
 obsidian-ai-briefing/
-├── main.ts              # Alt plugin-kode (Obsidian-konvensjon: en fil)
-├── manifest.json        # Plugin-metadata (id, name, version, minAppVersion)
-├── package.json         # Kun devDependencies (esbuild, typescript, obsidian types)
-├── esbuild.config.mjs   # Build-konfig
-├── tsconfig.json        # TypeScript-konfig
-├── styles.css           # Preview-modal og settings-stiler
-├── CLAUDE.md            # Denne filen
-└── README.md            # Bruker-dokumentasjon
+├── main.ts              # All plugin code (Obsidian convention: one file)
+├── manifest.json        # Plugin metadata (id, name, version, minAppVersion)
+├── package.json         # devDependencies only (esbuild, typescript, obsidian types)
+├── esbuild.config.mjs   # Build config
+├── tsconfig.json        # TypeScript config
+├── styles.css           # Preview modal and settings styles
+├── CLAUDE.md            # This file
+└── README.md            # User documentation
 ```
 
 ---
 
-## Bygg og utvikling
+## Build and Development
 
 ```bash
 npm install
-npm run build      # produksjon -> main.js
-npm run dev        # watch-modus for utvikling
+npm run build      # production -> main.js
+npm run dev        # watch mode for development
 ```
 
-### Installer lokalt i Obsidian under utvikling
+### Install locally in Obsidian during development
 
 ```bash
 VAULT=/path/to/vault
@@ -53,25 +53,25 @@ mkdir -p "$PLUGIN"
 cp main.js manifest.json styles.css "$PLUGIN/"
 ```
 
-Obsidian: Innstillinger -> Community plugins -> skru av Restricted mode -> aktiver plugin.
+Obsidian: Settings -> Community plugins -> disable Restricted mode -> enable the plugin.
 
 ---
 
-## Arkitektur (main.ts)
+## Architecture (main.ts)
 
 ```
-Kodeorganisering (topp -> bunn):
-1.  Imports (fra 'obsidian')
-2.  Konstanter + type-definisjoner
+Code organization (top -> bottom):
+1.  Imports (from 'obsidian')
+2.  Constants + type definitions
 3.  DEFAULT_SETTINGS
-4.  Utility-funksjoner (generateId, normalizeUrl, stripHtml, etc.)
-5.  fetchRSS — generisk RSS/Atom-parser (DOMParser)
-6.  API fetch-funksjoner (HuggingFace, HN, ArXiv, Reddit, GitHub)
-7.  DEFAULT_SOURCES (14 innebygde kilder) + getActiveSources()
+4.  Utility functions (generateId, normalizeUrl, stripHtml, etc.)
+5.  fetchRSS — generic RSS/Atom parser (DOMParser)
+6.  API fetch functions (HuggingFace, HN, ArXiv, Reddit, GitHub)
+7.  DEFAULT_SOURCES (14 built-in sources) + getActiveSources()
 8.  Collection engine (collectArticles, deduplicateArticles)
-9.  LLM providers (Anthropic, OpenAI-kompatibel, Gemini, Ollama)
+9.  LLM providers (Anthropic, OpenAI-compatible, Gemini, Ollama)
 10. buildCurationPrompt + parseCurationResponse
-11. Note-generator (generateNoteContent, saveDigestNote)
+11. Note generator (generateNoteContent, saveDigestNote)
 12. DigestPreviewModal (extends Modal)
 13. AIWeeklySettingTab (extends PluginSettingTab)
 14. AIWeeklyPlugin (extends Plugin) — default export
@@ -81,39 +81,39 @@ Kodeorganisering (topp -> bunn):
 
 ## LLM Providers
 
-| Provider | API-format | Dekker |
+| Provider | API format | Covers |
 |---|---|---|
-| Anthropic | Eget (system-felt, x-api-key) | Claude Haiku/Sonnet/Opus |
-| OpenAI-kompatibel | OpenAI chat/completions | OpenAI, Groq (gratis), OpenRouter, Mistral (gratis), custom |
-| Google Gemini | Eget (generateContent) | Gemini 2.0 Flash (gratis), 2.5 Pro/Flash |
-| Ollama | Eget (lokalt) | Alle lokale modeller |
+| Anthropic | Own (system field, x-api-key) | Claude Haiku/Sonnet/Opus |
+| OpenAI-compatible | OpenAI chat/completions | OpenAI, Groq (free), OpenRouter, Mistral (free), custom |
+| Google Gemini | Own (generateContent) | Gemini 2.0 Flash (free), 2.5 Pro/Flash |
+| Ollama | Own (local) | All local models |
 
-OpenAI-kompatibel har presets som auto-fyller endpoint og modell-valg.
+OpenAI-compatible has presets that auto-fill endpoint and model choices.
 
 ---
 
-## Innebygde kilder (14 stk)
+## Built-in Sources (14 total)
 
 **RSS Feeds (9):** MIT Tech Review, The Batch, Google AI Blog, OpenAI Blog,
 Anthropic Research, Import AI, The Gradient, Ahead of AI, AI News
 
-**API-kilder (5):** HuggingFace Papers, Hacker News (AI), ArXiv (cs.AI+cs.LG),
+**API sources (5):** HuggingFace Papers, Hacker News (AI), ArXiv (cs.AI+cs.LG),
 Reddit r/MachineLearning, GitHub Trending AI/ML
 
-Brukeren kan legge til egne RSS-feeds via settings UI.
+The user can add their own RSS feeds via the settings UI.
 
 ---
 
-## Viktige konvensjoner
+## Important Conventions
 
-- **Bruk alltid `requestUrl` fra obsidian** — ikke `fetch` eller `axios`
-- **Ingen runtime npm-avhengigheter** — alt i Obsidian API eller manuelt implementert
-- **En fil** — hold alt i `main.ts`
-- **JSON fra LLM** — strip markdown-backticks defensivt for JSON.parse
-- **Feilhandtering** — `new Notice(...)` for brukervendte feil, `console.warn` per kilde
-- **Promise.allSettled** — per-kilde feil-isolasjon i collection engine
-- **CSS-variabler** — bruk Obsidians tema-variabler for kompatibilitet
-- **DOMParser** — tilgjengelig i Electrons renderer for XML-parsing
+- **Always use `requestUrl` from obsidian** — not `fetch` or `axios`
+- **No runtime npm dependencies** — everything in the Obsidian API or implemented manually
+- **One file** — keep everything in `main.ts`
+- **JSON from LLM** — strip markdown backticks defensively before JSON.parse
+- **Error handling** — `new Notice(...)` for user-facing errors, `console.warn` per source
+- **Promise.allSettled** — per-source error isolation in the collection engine
+- **CSS variables** — use Obsidian's theme variables for compatibility
+- **DOMParser** — available in Electron's renderer for XML parsing
 
 ---
 
@@ -125,7 +125,7 @@ interface AIWeeklySettings {
   // Anthropic
   anthropicApiKey: string;
   anthropicModel: string;             // Default: 'claude-haiku-4-5-20251001'
-  // OpenAI-kompatibel
+  // OpenAI-compatible
   openaiCompatPreset: OpenAICompatPreset;
   openaiCompatEndpoint: string;
   openaiCompatApiKey: string;
@@ -136,7 +136,7 @@ interface AIWeeklySettings {
   // Ollama
   ollamaEndpoint: string;
   ollamaModel: string;
-  // Kilder
+  // Sources
   sourceOverrides: Record<string, boolean>;
   customSources: CustomSourceDef[];
   // Schedule
@@ -149,7 +149,7 @@ interface AIWeeklySettings {
   outputFolder: string;               // Default: 'AI-Weekly'
   language: 'en' | 'no';
   maxArticlesPerDigest: number;       // Default: 20
-  // Intern tracking
+  // Internal tracking
   lastCollectionDate: string;
   lastDigestWeek: string;
 }
@@ -157,27 +157,27 @@ interface AIWeeklySettings {
 
 ---
 
-## Dataflyt
+## Data Flow
 
-1. **Daglig innsamling** (auto kl. 06 eller manuelt)
-   - Henter fra alle aktiverte kilder parallelt (Promise.allSettled)
-   - Dedupliserer via normalisert URL
-   - Lagrer i cache (data.json), prunes etter 14 dager
+1. **Daily collection** (auto at 06:00 or manual)
+   - Fetches from all enabled sources in parallel (Promise.allSettled)
+   - Deduplicates via normalized URL
+   - Stores in cache (data.json), pruned after 14 days
 
-2. **Ukentlig digest** (auto mandag kl. 07 eller manuelt)
-   - Filtrerer cache til siste 7 dager
-   - Sender til valgt LLM med kuratering-prompt
-   - Viser preview-modal med kategoriserte artikler
-   - Bruker bekrefter -> genererer markdown-notat med frontmatter + tags
+2. **Weekly digest** (auto Monday at 07:00 or manual)
+   - Filters cache to the last 7 days
+   - Sends to the chosen LLM with a curation prompt
+   - Shows preview modal with categorized articles
+   - User confirms -> generates markdown note with frontmatter + tags
 
 ---
 
-## Kjente begrensninger
+## Known Limitations
 
-- `isDesktopOnly: true` — Obsidian mobil stotter ikke alle nodige APIer
-- HuggingFace Papers API returnerer siste ~24t — daglig innsamling loser dette
-- ArXiv rate-limiter aggressivt (1 req/3s) — kun ett kall per innsamling
-- Reddit krever User-Agent header for a unnga 429
-- GitHub Search API: 10 req/min uautentisert
-- Auto-run krever at Obsidian er apent
-- Ollama krever `stream: false` for requestUrl-kompatibilitet
+- `isDesktopOnly: true` — Obsidian mobile does not support all required APIs
+- HuggingFace Papers API returns the last ~24h — daily collection solves this
+- ArXiv rate-limits aggressively (1 req/3s) — only one call per collection
+- Reddit requires a User-Agent header to avoid 429
+- GitHub Search API: 10 req/min unauthenticated
+- Auto-run requires Obsidian to be open
+- Ollama requires `stream: false` for requestUrl compatibility
