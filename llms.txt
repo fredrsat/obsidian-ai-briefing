@@ -1,0 +1,26 @@
+# AI Briefing for Obsidian
+
+> Obsidian plugin that collects AI news daily from 14+ curated sources and generates a weekly LLM-curated briefing note, with multi-provider support (Anthropic, OpenAI-compatible, Google Gemini, Ollama).
+
+The plugin runs inside Obsidian (desktop). Daily background collection fetches articles from RSS feeds and APIs (HuggingFace, Hacker News, ArXiv, Reddit, GitHub) into a cache; once a week the configured LLM curates them into a structured Markdown note with YAML frontmatter, categorized sections, relevance scores, and an "Article of the Week" highlight. A preview modal lets the user edit before saving.
+
+Tech stack: TypeScript, esbuild, Obsidian Plugin API. All source code lives in a single file, `main.ts`, following Obsidian's single-file convention. HTTP goes through Obsidian's `requestUrl` wrapper only. Settings and article cache persist via `loadData`/`saveData` in `data.json`, which also stores API keys. Free-tier providers (Groq, Mistral, Gemini, Ollama) are supported out of the box.
+
+## Docs
+
+- [README.md](https://github.com/fredrsat/obsidian-ai-briefing/blob/main/README.md): features, built-in sources, installation, setup, usage, output format, network and security disclosure
+- [CLAUDE.md](https://github.com/fredrsat/obsidian-ai-briefing/blob/main/CLAUDE.md): stack overview and development notes
+
+## Source
+
+- [main.ts](https://github.com/fredrsat/obsidian-ai-briefing/blob/main/main.ts): entire plugin — sources, collection, LLM providers, digest generation, settings UI, preview modal
+- [manifest.json](https://github.com/fredrsat/obsidian-ai-briefing/blob/main/manifest.json): Obsidian plugin manifest
+- [styles.css](https://github.com/fredrsat/obsidian-ai-briefing/blob/main/styles.css): plugin styling
+
+## Optional
+
+- [package.json](https://github.com/fredrsat/obsidian-ai-briefing/blob/main/package.json): scripts (dev, build, lint) and dev dependencies
+- [esbuild.config.mjs](https://github.com/fredrsat/obsidian-ai-briefing/blob/main/esbuild.config.mjs): build configuration
+- [.github/workflows/release.yml](https://github.com/fredrsat/obsidian-ai-briefing/blob/main/.github/workflows/release.yml): tag-triggered release workflow building main.js
+- [install.sh](https://github.com/fredrsat/obsidian-ai-briefing/blob/main/install.sh): local install helper script
+- [LICENSE](https://github.com/fredrsat/obsidian-ai-briefing/blob/main/LICENSE): MIT license
